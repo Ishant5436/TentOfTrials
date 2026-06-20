@@ -53,9 +53,14 @@ func (e *MatchingEngine) PlaceOrder(order *types.Order) ([]*types.Trade, error) 
 		return nil, err
 	}
 
-	order.Status = types.Filled
-	order.FilledQty = order.Quantity
-	order.RemainingQty = decimal.Zero
+	if order.RemainingQty.IsZero() {
+		order.Status = types.Filled
+	} else if order.RemainingQty.LessThan(order.Quantity) {
+		order.Status = types.PartiallyFilled
+	} else {
+		order.Status = types.New
+	}
+	order.FilledQty = order.Quantity.Sub(order.RemainingQty)
 	order.UpdatedAt = time.Now()
 
 	for _, trade := range trades {
