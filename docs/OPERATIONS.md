@@ -278,6 +278,15 @@ Audit logs are retained for 365 days and include:
 
 ## Troubleshooting
 
+### Diagnostic Viewer
+
+When a build or CI process fails, the `build.py` script generates diagnostic metadata artifacts (e.g., `build-XXXX.json` and `build-XXXX.logd`). You can inspect these artifacts using the frontend Diagnostic Viewer:
+
+1. Navigate to the `/diagnostic` route in the frontend application.
+2. Paste the contents of the `build-XXXX.json` file into the "Raw Diagnostic JSON" input field.
+3. If the diagnostic log is encrypted, provide the required password.
+4. The viewer will parse the metadata and display the status of each module, including elapsed time and output logs. This is essential for debugging failed test runs or build steps.
+
 ### Common Issues
 
 **Service won't start**

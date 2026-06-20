@@ -27,6 +27,7 @@ const sidebarSections = [
       { label: 'Health', path: '/health', icon: '❤️' },
       { label: 'Metrics', path: '/metrics', icon: '📏' },
       { label: 'Traces', path: '/traces', icon: '🔍' },
+      { label: 'Diagnostic Viewer', path: '/diagnostic', icon: '🛠️' },
     ],
   },
 ];
