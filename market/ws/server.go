@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -26,6 +28,7 @@ type Client struct {
 	send     chan []byte
 	subs     map[types.Symbol]struct{}
 	remote   string
+	lastPong time.Time
 	mu       sync.Mutex
 }
 
@@ -169,16 +172,35 @@ func (s *Server) handleGetDepth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "depth endpoint"})
 }
 
+func getHeartbeatInterval() time.Duration {
+	if val := os.Getenv("WS_HEARTBEAT_INTERVAL_SECS"); val != "" {
+		if secs, err := strconv.Atoi(val); err == nil && secs > 0 {
+			return time.Duration(secs) * time.Second
+		}
+	}
+	return 30 * time.Second
+}
+
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
 
+	interval := getHeartbeatInterval()
+
 	c.conn.SetReadLimit(65536)
-	c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	c.conn.SetReadDeadline(time.Now().Add(2 * interval))
+	
+	c.mu.Lock()
+	c.lastPong = time.Now()
+	c.mu.Unlock()
+
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		c.mu.Lock()
+		c.lastPong = time.Now()
+		c.mu.Unlock()
+		c.conn.SetReadDeadline(time.Now().Add(2 * interval))
 		return nil
 	})
 
@@ -200,7 +222,9 @@ func (c *Client) readPump() {
 }
 
 func (c *Client) writePump() {
-	ticker := time.NewTicker(30 * time.Second)
+	interval := getHeartbeatInterval()
+	ticker := time.NewTicker(interval)
+	
 	defer func() {
 		ticker.Stop()
 		c.conn.Close()
@@ -219,6 +243,14 @@ func (c *Client) writePump() {
 			}
 
 		case <-ticker.C:
+			c.mu.Lock()
+			lastPong := c.lastPong
+			c.mu.Unlock()
+
+			if time.Since(lastPong) > 2*interval {
+				return
+			}
+
 			c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
