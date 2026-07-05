@@ -310,3 +310,12 @@ Audit logs are retained for 365 days and include:
 2. Update Kubernetes secret: `kubectl create secret tls tot-tls --cert=new.crt --key=new.key -n tent-production --dry-run=client -o yaml | kubectl apply -f -`
 3. Restart services: `kubectl rollout restart deployment -n tent-production`
 4. Verify new certificate: `openssl s_client -connect api.example.com:443 -servername api.example.com`
+
+## Telemetry Batch Flushing
+
+The frontend telemetry service uses a batch flushing system to optimize network requests and battery life. 
+
+- **Batch Size:** Events are grouped into batches and sent when the queue reaches 100 items.
+- **Unload Trigger:** A force flush is triggered on the `beforeunload` event, ensuring partial batches are not lost when the user closes or navigates away from the page. 
+- **Partial Batch Preservation:** If an event is enqueued and the queue size is below 100 without an unload trigger, the event is safely preserved in memory. 
+- **Queue Reset:** Following a successful flush, the events queue is emptied while total sent metrics are incremented properly.
